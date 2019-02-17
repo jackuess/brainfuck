@@ -134,6 +134,7 @@ enum BFErrCode bf_eval(const struct BFCommand *program, ptrdiff_t program_len,
 
 int main(int argc, char **argv) {
     if (argc != 2) {
+        printf("Usage: %s <PROGRAM>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
