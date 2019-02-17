@@ -139,6 +139,10 @@ int main(int argc, char **argv) {
     }
 
     FILE *src_file = fopen(argv[1], "r");
+    if (!src_file) {
+        printf("%s could not be opened\n", argv[1]);
+        return EXIT_FAILURE;
+    }
     struct BFCommand program[MAX_PROGRAM_LEN] = {0};
     size_t num_commands = 0;
     enum BFErrCode err = bf_parse_file(&program[0], &num_commands,
