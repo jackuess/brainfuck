@@ -5,7 +5,9 @@
 #include <stdlib.h>
 
 #define NUM_MEMORY_SLOTS 30000
-#define MAX_PROGRAM_LEN 4096*10
+#define MAX_PROGRAM_LEN 1024*64
+#define MAX_LOOP_DEPTH 512
+
 
 enum BFErrCode {
     BF_SUCCESS,
@@ -35,15 +37,11 @@ enum BFErrCode bf_parse_file(struct BFCommand *program, size_t *program_len,
     const int bufsize = 4096;
     char buf[bufsize];
     size_t num_chars = 0;
-    size_t *open_braces = NULL;
-    if (!(open_braces = malloc(sizeof open_braces[0] * program_max_len))) {
-        return BF_ERR_OUT_OF_MEMORY;
-    }
+    struct BFCommand *open_braces[MAX_LOOP_DEPTH] = {NULL};
     size_t num_open_braces = 0;
-    size_t sibling_pos = 0;
+    struct BFCommand *sibling = NULL;
     while ((num_chars = fread(&buf[0], 1, bufsize, f)) > 0) {
-        if (*program_len+ num_chars > program_max_len) {
-            free(open_braces);
+        if (*program_len + num_chars > program_max_len) {
             return BF_ERR_PROGRAM_TOO_LONG;
         }
         for (unsigned int i = 0; i < num_chars; i++) {
@@ -67,14 +65,17 @@ enum BFErrCode bf_parse_file(struct BFCommand *program, size_t *program_len,
                     program[*program_len].type = BF_CMD_READ;
                     break;
                 case '[':
-                    open_braces[num_open_braces++] = *program_len;
+                    if (num_open_braces == MAX_LOOP_DEPTH) {
+                        return BF_ERR_PROGRAM_TOO_LONG;
+                    }
+                    open_braces[num_open_braces++] = &program[*program_len];
                     program[*program_len].type = BF_CMD_LOOP;
                     break;
                 case ']':
-                    sibling_pos = open_braces[--num_open_braces];
-                    program[sibling_pos].jmp = &program[*program_len];
+                    sibling = open_braces[--num_open_braces];
+                    sibling->jmp = &program[*program_len];
                     program[*program_len].type = BF_CMD_ENDLOOP;
-                    program[*program_len].jmp = &program[sibling_pos];
+                    program[*program_len].jmp = sibling;
                     break;
                 default:
                     continue;
@@ -82,7 +83,6 @@ enum BFErrCode bf_parse_file(struct BFCommand *program, size_t *program_len,
             (*program_len)++;
         }
     }
-    free(open_braces);
     return BF_SUCCESS;
 }
 
